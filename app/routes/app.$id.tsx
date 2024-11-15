@@ -1,4 +1,5 @@
 import type { LoaderArgs } from "@remix-run/react";
+import { Buffer } from "buffer";
 import { json } from "@remix-run/node";
 import { useMatches } from "@remix-run/react";
 import { db } from "~/lib/db.server";
@@ -44,6 +45,8 @@ import {
   AccordionTrigger,
 } from "~/components/ui/accordion";
 import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -53,8 +56,13 @@ import {
   DialogTitle,
   //DialogTrigger,
 } from "~/components/ui/dialog";
-import { Label } from "~/components/ui/label";
-import { LoadingSpinner } from "~/components/ui/loading";
+import { SpinnerFull } from "~/components/ui/loading";
+import { uploadImage } from "~/lib/upload.server";
+
+const encodeBase64NoPadding = (data: string) => {
+  const encoded = Buffer.from(data).toString("base64");
+  return encoded.replace(/=+$/, ""); // Menghapus padding `=`
+};
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const id = params.id;
@@ -66,22 +74,39 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const contentType = request.headers.get("Content-Type") || "";
 
   if (contentType.includes("multipart/form-data")) {
-    const uploadHandler = composeUploadHandlers(
-      createFileUploadHandler({
-        directory: "public/uploads",
-        maxPartSize: 5_000_000,
-        file: ({ filename }) => filename,
-      }),
+    const uploadHandler: UploadHandler = composeUploadHandlers(
+      async ({ name, data }) => {
+        if (name !== "img") {
+          return undefined;
+        }
+
+        const uploadedImage = await uploadImage(data);
+        console.warn(
+          "DEBUGPRINT[2]: app.$id.tsx:75: uploadedImage=",
+          uploadedImage,
+        );
+        return uploadedImage.secure_url;
+      },
       createMemoryUploadHandler(),
     );
+    // const uploadHandler = composeUploadHandlers(
+    //   createFileUploadHandler({
+    //     directory: "public/uploads",
+    //     maxPartSize: 5_000_000,
+    //     file: ({ filename }) => filename,
+    //   }),
+    //   createMemoryUploadHandler(),
+    // );
 
     const formData = await parseMultipartFormData(request, uploadHandler);
     const images = formData.getAll("img"); // all file
-    const imageNames = images
-      .filter((file) => file.name.trim() !== "") // Hapus file dengan nama kosong
-      .map((file) => file.name);
-
-    const result = imageNames.length > 0 ? imageNames : null;
+    console.warn("DEBUGPRINT[3]: tasks.$id.tsx:96: images=", images);
+    // const imageNames = images
+    //   .filter((file) => file.name.trim() !== "") // Hapus file dengan nama kosong
+    //   .map((file) => file.name);
+    //
+    // const result = imageNames.length > 0 ? imageNames : null;
+    const result = images?.length > 0 ? images : null;
 
     if (!result) {
       return json({ error: "something wrong", imgSrc: null });
@@ -126,14 +151,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
       const parse_product = JSON.parse(p.metadata);
       const product = { ...parse_product, ...data };
-      const _product = JSON.stringify(product);
+      const _product = encodeBase64NoPadding(JSON.stringify(product));
 
       await db.product.update({
         where: {
           id: id,
         },
         data: {
-          metadata: _product,
+          metadata: JSON.stringify(product),
         },
       });
 
@@ -235,6 +260,7 @@ export default function Index() {
 
   React.useEffect(() => {
     const saveInBlockchain = async (id, product, message) => {
+      console.warn("DEBUGPRINT[4]: tasks.$id.tsx:256: product=", id, product);
       try {
         await contract.methods.createProduct(id, product).send({
           from: user.accounts[0],
@@ -280,12 +306,12 @@ export default function Index() {
   }, [actionData]);
 
   return (
-    <Dialog open={true} onOpenChange={() => navigate("/app")}>
+    <Dialog open={true} onOpenChange={() => navigate(-1)}>
       {profile?.role === "Mahasiswa" ? (
         <div>
           {md?.tanggalSidang ? (
             <ScoreRequest md={md} url={url} />
-          ) : md?.validasiDekan ? (
+          ) : md?.validasiDekan && !md?.laporanMagang ? (
             <ReportRequest md={md} />
           ) : (
             <PlanRequest md={md} />
@@ -313,8 +339,12 @@ const ValidationRequest = ({ md }) => {
   const navigate = useNavigate();
   const isSubmitting = navigation.state !== "idle";
 
-  const [validasiDekan, setValidasiDekan] = React.useState(false);
-  const [validasiKaprodi, setValidasiKaprodi] = React.useState(false);
+  const [validasiDekan, setValidasiDekan] = React.useState(
+    md?.validasiDekan ?? false,
+  );
+  const [validasiKaprodi, setValidasiKaprodi] = React.useState(
+    md?.validasiKaprodi ?? false,
+  );
 
   return (
     <DialogContent className=" sm:max-w-[425px]">
@@ -325,11 +355,7 @@ const ValidationRequest = ({ md }) => {
           wait().then(() => navigate("/app"));
         }}
       >
-        {isSubmitting && (
-          <div className="absolute h-full w-full flex items-center justify-center bg-white/20">
-            <LoadingSpinner stroke={`#000`} size={55} />
-          </div>
-        )}
+        {isSubmitting && <SpinnerFull />}
         <DialogHeader>
           <DialogTitle>
             Pengajuan Magang ( validasi Dekan Dan Kaprodi )
@@ -341,13 +367,13 @@ const ValidationRequest = ({ md }) => {
           <legend className="sr-only">Checkboxes</legend>
 
           <div className="space-y-2">
-            <label
+            <Label
               htmlFor="Option1"
               className="flex cursor-pointer items-start gap-4 rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 has-[:checked]:bg-blue-50"
             >
               <div className="flex items-center">
                 &#8203;
-                <input
+                <Input
                   checked={validasiDekan}
                   name="validasiDekan"
                   type="checkbox"
@@ -366,13 +392,13 @@ const ValidationRequest = ({ md }) => {
                   Lorem ipsum dolor sit amet consectetur adipisicing elit.
                 </p>
               </div>
-            </label>
+            </Label>
 
-            <label
+            <Label
               htmlFor="validasiKaprodi"
               className="flex cursor-pointer items-start gap-4 rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 has-[:checked]:bg-blue-50"
             >
-              <input
+              <Input
                 checked={validasiKaprodi}
                 name="validasiKaprodi"
                 type="checkbox"
@@ -390,7 +416,7 @@ const ValidationRequest = ({ md }) => {
                   Lorem ipsum dolor sit amet consectetur.
                 </p>
               </div>
-            </label>
+            </Label>
           </div>
         </fieldset>
 
@@ -404,7 +430,7 @@ const ValidationRequest = ({ md }) => {
     </DialogContent>
   );
 };
-
+import { Printer } from "lucide-react";
 const ScoreRequest = ({ md }) => {
   const [url, setUrl] = React.useState("");
   const certificateRef = React.useRef(null);
@@ -438,14 +464,14 @@ const ScoreRequest = ({ md }) => {
   }, [md.id]);
 
   return (
-    <DialogContent className=" max-w-3xl">
+    <DialogContent className="max-w-4xl">
       <DialogHeader>
         <DialogTitle>Sertifikat</DialogTitle>
-        <DialogDescription></DialogDescription>
+        <DialogDescription>Sertifikat digital</DialogDescription>
       </DialogHeader>
       <>
         <div ref={certificateRef} className="grid gap-5 place-items-start">
-          <div className="bg-gradient-to-r from-blue-800 to-indigo-900 p-10 rounded-lg shadow-lg w-full max-w-3xl">
+          <div className="bg-gradient-to-r from-blue-800 to-indigo-900 p-10 rounded-lg shadow-lg w-full max-w-4xl">
             <div className="text-center mb-10">
               <h1 className="text-4xl font-bold text-white">
                 Certificate of Completion
@@ -491,12 +517,10 @@ const ScoreRequest = ({ md }) => {
         {/*<a href={`/app/detail/${md.id}`} target="_blank">
           Detail Data
         </a>*/}
-        <button
-          onClick={printCertificate}
-          className="bg-blue-600 text-white py-2 px-4 rounded-xl no-print mx-auto w-fit "
-        >
+        <Button onClick={printCertificate} className="no-print mx-auto w-fit ">
+          <Printer />
           Print Certificate
-        </button>
+        </Button>
       </>
     </DialogContent>
   );
@@ -588,11 +612,7 @@ const ReportRequest = ({ md }) => {
   return (
     <DialogContent className=" sm:max-w-[425px]">
       <Form method="post" encType="multipart/form-data">
-        {isSubmitting && (
-          <div className="absolute h-full w-full flex items-center justify-center bg-white/20">
-            <LoadingSpinner stroke={`#000`} size={55} />
-          </div>
-        )}
+        {isSubmitting && <SpinnerFull />}
         <DialogHeader>
           <DialogTitle>Upload Berkas dan Laporan</DialogTitle>
           <DialogDescription></DialogDescription>
@@ -600,75 +620,77 @@ const ReportRequest = ({ md }) => {
 
         <div className="">
           <div className="mb-3">
-            <input type="hidden" name="id" defaultValue={md?.id} />
-            <input type="hidden" name="type" defaultValue="upload" />
-            <input
+            <Input type="hidden" name="id" defaultValue={md?.id} />
+            <Input type="hidden" name="type" defaultValue="upload" />
+            <Input
               type="hidden"
               name="laporanMagang"
               defaultValue={JSON.stringify(skils)}
             />
-            <label
+            <Label
               className="block mb-1 text-sm font-medium text-gray-900 dark:text-white"
               htmlFor="multiple_files"
             >
               Upload multiple files
-            </label>
-            <input
-              type="file"
-              name="img"
-              accept="image/*"
-              multiple
-              className="p-2.5 block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 dark:text-gray-400 focus:outline-none dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400"
-            />
+            </Label>
+
+            <Label className="block">
+              <span className="sr-only">Choose profile photo</span>
+              <Input
+                type="file"
+                name="img"
+                accept="image/*"
+                multiple
+                className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-muted-background file:text-primary hover:file:bg-accent h-full"
+              />
+            </Label>
           </div>
           <div className="mb-3">
-            <label
+            <Label
               htmlFor="default-input"
               className="block mb-1 text-sm font-medium text-gray-900 dark:text-white"
             >
               Skill Name
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               value={skillName}
               placeholder="Skill Name"
               onChange={(e) => setSkillName(e.target.value)}
-              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
             />
           </div>
           <div className="mb-3">
-            <label
+            <Label
               htmlFor="default-input"
               className="block mb-1 text-sm font-medium text-gray-900 dark:text-white"
             >
               Skill Value
-            </label>
-            <input
+            </Label>
+            <Input
               type="number"
               value={skillValue}
               onChange={(e) => handleSkillValueChange(parseInt(e.target.value))}
               min={0}
               max={100}
-              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
             />
           </div>
           <div>
-            <label
+            <Label
               htmlFor="default-input"
               className="block mb-1 text-sm font-medium text-gray-900 dark:text-white"
             >
               Category
-            </label>
-            <select
-              className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full px-2.5 py-3 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-              value={skillCategory}
-              onChange={(e) =>
-                setSkillCategory(e.target.value as "hard" | "soft")
-              }
-            >
-              <option value="hard">Hard Skill</option>
-              <option value="soft">Soft Skill</option>
-            </select>
+            </Label>
+
+            <Select value={skillCategory} onValueChange={setSkillCategory}>
+              <SelectTrigger className=" w-full text-gray-700 outline-none mt-1 focus:ring-none ring-blue-600 border border-gray-400 rounded-[10px] h-11 ">
+                <SelectValue placeholder="Pilih Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hard">Hard Skill</SelectItem>
+                <SelectItem value="soft">Soft Skill</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="mt-4 flex items-center justify-center">
             <button
@@ -990,118 +1012,62 @@ const SidangRequest = ({ laporanMagang, md }) => {
   };
 
   return (
-    <DialogContent className="max-w-6xl">
-      {isSubmitting && (
-        <div className="absolute h-full w-full flex items-center justify-center bg-white/20">
-          <LoadingSpinner stroke={`#000`} size={55} />
-        </div>
-      )}
+    <DialogContent className="max-w-7xl">
+      {isSubmitting && <SpinnerFull />}
       <DialogHeader>
         <DialogTitle>Prosesi Sidang dan Konversi Nilai</DialogTitle>
         <DialogDescription></DialogDescription>
       </DialogHeader>
-      <div className="">
-        <label
-          htmlFor="UserEmail"
-          className="block text-xs sm:text-sm  font-medium text-gray-700"
-        >
-          Tanggal Sidang
-        </label>
+      <div className="max-h-[80vh] overflow-y-auto pr-3">
+        <div>
+          <Label
+            htmlFor="UserEmail"
+            className="block text-xs sm:text-sm  font-medium text-gray-700"
+          >
+            Tanggal Sidang
+          </Label>
 
-        <input
-          value={tanggalSidang}
-          onChange={(e) => setTanggalSidang(e.target.value)}
-          placeholder="Test Laporan"
-          type="date"
-          className="disabled:bg-gray-200 mt-1.5  px-4 py-2.5 w-full rounded-[10px] border border-gray-400 outline-none focus:ring-2 focus:border-blue-600 ring-blue-600 shadow-sm sm:text-sm"
-        />
-      </div>
+          <Input
+            value={tanggalSidang}
+            onChange={(e) => setTanggalSidang(e.target.value)}
+            placeholder="Test Laporan"
+            type="date"
+            className="disabled:bg-gray-200 mt-1.5  px-4 py-2.5 w-full rounded-[10px] border border-gray-400 outline-none focus:ring-2 focus:border-blue-600 ring-blue-600 shadow-sm sm:text-sm"
+          />
+        </div>
 
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem value="item-1">
-          <AccordionTrigger className="text-sm border-none text-gray-700 px-3">
-            Daftar Mata Kuliah
-          </AccordionTrigger>
-          <AccordionContent className="grid grid-cols-2 gap-5 max-w-6xl">
-            <div className="col-span-2 grid gap-5 border border-gray-300">
-              <div className="overflow-x-auto max-w-full max-h-[24vh]">
-                <table className="min-w-full divide-y-2 divide-gray-200 bg-white text-sm">
-                  <thead className="hidden ltr:text-left rtl:text-right sticky top-0 bg-slate-300 font-bold shadow-xl">
-                    <tr>
-                      <th className="px-4 py-2 text-gray-900 text-left">
-                        Name
-                      </th>
-                      <th className="px-4 py-2 text-gray-900 hidden">
-                        Category
-                      </th>
-                      <th className="px-4 py-2 text-gray-900 hiddenj">Code</th>
-                    </tr>
-                  </thead>
-
-                  <tbody className="divide-y divide-gray-200">
-                    {resultFuzzy.map((person, index) => (
-                      <tr
-                        onClick={() => toggleSelection(person)}
-                        key={index}
-                        className={`cursor-pointer ${
-                          selectedPersons.some((p) => p.code === person.code)
-                            ? "bg-slate-200"
-                            : person.category === 1
-                              ? "bg-yellow-50"
-                              : person.category === 2
-                                ? "bg-blue-50"
-                                : person.category === 3
-                                  ? "bg-green-50"
-                                  : person.category === 4
-                                    ? "bg-red-50"
-                                    : ""
-                        }`}
-                      >
-                        <td className="px-4 py-2 font-medium text-gray-900 text-left">
-                          {person.matakuliah}
-                        </td>
-                        <td className="px-4 py-2 font-medium text-gray-900 hidden">
-                          {person.category}
-                        </td>
-                        <td className="px-4 py-2 font-medium text-gray-900 hidden">
-                          {person.code}
-                        </td>
+        <Accordion type="single" collapsible className="w-full">
+          <AccordionItem value="item-1">
+            <AccordionTrigger className="text-sm border-none text-gray-700 px-3">
+              Daftar Mata Kuliah
+            </AccordionTrigger>
+            <AccordionContent className="grid grid-cols-2 gap-5 max-w-6xl">
+              <div className="col-span-2 grid gap-5 border border-gray-300">
+                <div className="overflow-x-auto max-w-full max-h-[24vh]">
+                  <table className="min-w-full divide-y-2 divide-gray-200 bg-white text-sm">
+                    <thead className="hidden ltr:text-left rtl:text-right sticky top-0 bg-slate-300 font-bold shadow-xl">
+                      <tr>
+                        <th className="px-4 py-2 text-gray-900 text-left">
+                          Name
+                        </th>
+                        <th className="px-4 py-2 text-gray-900 hidden">
+                          Category
+                        </th>
+                        <th className="px-4 py-2 text-gray-900 hiddenj">
+                          Code
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div className="grid gap-5 mt-5 place-items-start">
-              <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-                Fuzzy Match By Code & Category
-              </h2>
-              <div className="overflow-x-auto rounded-lg border border-gray-300 w-full">
-                <table className="min-w-full divide-y-2 divide-gray-300 bg-white text-sm">
-                  <thead className="ltr:text-left rtl:text-right">
-                    <tr>
-                      <th className="px-4 py-2 font-medium text-gray-900 text-left">
-                        Mata Kuliah
-                      </th>
-                      <th className="px-4 py-2 font-medium text-gray-900 text-left">
-                        Fuzzy Score
-                      </th>
-                      <th className="px-4 py-2 font-medium text-gray-900 text-left">
-                        Nilai
-                      </th>
-                    </tr>
-                  </thead>
+                    </thead>
 
-                  <tbody className="divide-y divide-gray-200">
-                    {selectedPersons?.length > 0 &&
-                      selectedPersons
-                        ?.sort((a, b) => a.score - b.score)
-                        .map((person, index) => (
-                          <tr
-                            onClick={() => toggleSelection(person)}
-                            key={index}
-                            className={`cursor-pointer ${
-                              person.category === 1
+                    <tbody className="divide-y divide-gray-200">
+                      {resultFuzzy.map((person, index) => (
+                        <tr
+                          onClick={() => toggleSelection(person)}
+                          key={index}
+                          className={`cursor-pointer ${
+                            selectedPersons.some((p) => p.code === person.code)
+                              ? "bg-slate-200"
+                              : person.category === 1
                                 ? "bg-yellow-50"
                                 : person.category === 2
                                   ? "bg-blue-50"
@@ -1110,31 +1076,26 @@ const SidangRequest = ({ laporanMagang, md }) => {
                                     : person.category === 4
                                       ? "bg-red-50"
                                       : ""
-                            }`}
-                          >
-                            <td className="px-4 py-2 font-medium text-gray-900 text-left">
-                              {person.matakuliah}
-                            </td>
-                            <td className="px-4 py-2 font-medium text-gray-900 text-left">
-                              {person.score}
-                            </td>
-                            <td className="px-6 py-2 font-medium text-gray-900 text-left">
-                              {person?.score === null
-                                ? "-"
-                                : konversiNilai(person?.score)}
-                            </td>
-                          </tr>
-                        ))}
-                  </tbody>
-                </table>
+                          }`}
+                        >
+                          <td className="px-4 py-2 font-medium text-gray-900 text-left">
+                            {person.matakuliah}
+                          </td>
+                          <td className="px-4 py-2 font-medium text-gray-900 hidden">
+                            {person.category}
+                          </td>
+                          <td className="px-4 py-2 font-medium text-gray-900 hidden">
+                            {person.code}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-
-            {resultCombine?.length > 0 && (
               <div className="grid gap-5 mt-5 place-items-start">
                 <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
-                  Fuzzy Match + Nilai Soft Skills & Hard Skills ( {addtPerc}%
-                  Effect )
+                  Fuzzy Match By Code & Category
                 </h2>
                 <div className="overflow-x-auto rounded-lg border border-gray-300 w-full">
                   <table className="min-w-full divide-y-2 divide-gray-300 bg-white text-sm">
@@ -1153,11 +1114,12 @@ const SidangRequest = ({ laporanMagang, md }) => {
                     </thead>
 
                     <tbody className="divide-y divide-gray-200">
-                      {resultCombine?.length > 0 &&
-                        resultCombine
+                      {selectedPersons?.length > 0 &&
+                        selectedPersons
                           ?.sort((a, b) => a.score - b.score)
                           .map((person, index) => (
                             <tr
+                              onClick={() => toggleSelection(person)}
                               key={index}
                               className={`cursor-pointer ${
                                 person.category === 1
@@ -1188,27 +1150,89 @@ const SidangRequest = ({ laporanMagang, md }) => {
                   </table>
                 </div>
               </div>
-            )}
 
-            <div className="mt-3 col-span-2 mx-2 max-w-sm">
-              <label
-                htmlFor="default-input"
-                className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
-              >
-                Presentase Efek untuk mempengaruhi Score Fuzzy (%)
-              </label>
-              <input
-                type="number"
-                value={addtPerc}
-                onChange={(e) => handleAddtPercChange(parseInt(e.target.value))}
-                min={0}
-                max={100}
-                className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-              />
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+              {resultCombine?.length > 0 && (
+                <div className="grid gap-5 mt-5 place-items-start">
+                  <h2 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
+                    Fuzzy Match + Nilai Soft Skills & Hard Skills ( {addtPerc}%
+                    Effect )
+                  </h2>
+                  <div className="overflow-x-auto rounded-lg border border-gray-300 w-full">
+                    <table className="min-w-full divide-y-2 divide-gray-300 bg-white text-sm">
+                      <thead className="ltr:text-left rtl:text-right">
+                        <tr>
+                          <th className="px-4 py-2 font-medium text-gray-900 text-left">
+                            Mata Kuliah
+                          </th>
+                          <th className="px-4 py-2 font-medium text-gray-900 text-left">
+                            Fuzzy Score
+                          </th>
+                          <th className="px-4 py-2 font-medium text-gray-900 text-left">
+                            Nilai
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody className="divide-y divide-gray-200">
+                        {resultCombine?.length > 0 &&
+                          resultCombine
+                            ?.sort((a, b) => a.score - b.score)
+                            .map((person, index) => (
+                              <tr
+                                key={index}
+                                className={`cursor-pointer ${
+                                  person.category === 1
+                                    ? "bg-yellow-50"
+                                    : person.category === 2
+                                      ? "bg-blue-50"
+                                      : person.category === 3
+                                        ? "bg-green-50"
+                                        : person.category === 4
+                                          ? "bg-red-50"
+                                          : ""
+                                }`}
+                              >
+                                <td className="px-4 py-2 font-medium text-gray-900 text-left">
+                                  {person.matakuliah}
+                                </td>
+                                <td className="px-4 py-2 font-medium text-gray-900 text-left">
+                                  {person.score}
+                                </td>
+                                <td className="px-6 py-2 font-medium text-gray-900 text-left">
+                                  {person?.score === null
+                                    ? "-"
+                                    : konversiNilai(person?.score)}
+                                </td>
+                              </tr>
+                            ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-3 col-span-2 mx-2 max-w-sm">
+                <Label
+                  htmlFor="default-input"
+                  className="block mb-2 text-sm font-medium text-gray-900 dark:text-white"
+                >
+                  Presentase Efek untuk mempengaruhi Score Fuzzy (%)
+                </Label>
+                <Input
+                  type="number"
+                  value={addtPerc}
+                  onChange={(e) =>
+                    handleAddtPercChange(parseInt(e.target.value))
+                  }
+                  min={0}
+                  max={100}
+                  className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                />
+              </div>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </div>
       <DialogFooter>
         <Button
           className="bg-emerald-600 hover:bg-emerald-700"
@@ -1231,14 +1255,14 @@ const SidangRequest = ({ laporanMagang, md }) => {
         </Button>
 
         <Form method="PUT" key="request_magang">
-          <input name="type" type="hidden" defaultValue="sidang" />
-          <input name="id" type="hidden" defaultValue={md?.id} />
-          <input
+          <Input name="type" type="hidden" defaultValue="sidang" />
+          <Input name="id" type="hidden" defaultValue={md?.id} />
+          <Input
             name="tanggalSidang"
             type="hidden"
             defaultValue={new Date(tanggalSidang)}
           />
-          <input
+          <Input
             name="nilai"
             type="hidden"
             defaultValue={JSON.stringify(resultCombine)}
@@ -1272,11 +1296,7 @@ const PlanRequest = ({ md }) => {
 
   return (
     <DialogContent className=" sm:max-w-[425px]">
-      {isSubmitting && (
-        <div className="absolute h-full w-full flex items-center justify-center bg-white/20">
-          <LoadingSpinner stroke={`#000`} size={55} />
-        </div>
-      )}
+      {isSubmitting && <SpinnerFull />}
       <DialogHeader>
         <DialogTitle>Pengajuan Magang ( konsultasi PA )</DialogTitle>
         <DialogDescription></DialogDescription>
@@ -1290,13 +1310,13 @@ const PlanRequest = ({ md }) => {
         }}
       >
         <div className="">
-          <label
+          <Label
             htmlFor="konsultasiPA"
             className="block text-xs sm:text-sm  font-medium text-gray-700"
           >
             Rencana konsultasi PA
-          </label>
-          <input
+          </Label>
+          <Input
             onChange={(e) => setKonsultasiPA(e.target.value)}
             name="konsultasiPA"
             value={konsultasiPA}
@@ -1308,13 +1328,13 @@ const PlanRequest = ({ md }) => {
           <legend className="sr-only">Checkboxes</legend>
 
           <div className="space-y-2">
-            <label
+            <Label
               htmlFor="Option1"
               className="flex cursor-pointer items-start gap-4 rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 has-[:checked]:bg-blue-50"
             >
               <div className="flex items-center">
                 &#8203;
-                <input
+                <Input
                   checked={rancangKRS}
                   name="rancangKRS"
                   type="checkbox"
@@ -1333,15 +1353,15 @@ const PlanRequest = ({ md }) => {
                   Lorem ipsum dolor sit amet consectetur adipisicing elit.
                 </p>
               </div>
-            </label>
+            </Label>
 
-            <label
+            <Label
               htmlFor="Option2"
               className="flex cursor-pointer items-start gap-4 rounded-lg border border-gray-200 p-4 transition hover:bg-gray-50 has-[:checked]:bg-blue-50"
             >
               <div className="flex items-center">
                 &#8203;
-                <input
+                <Input
                   checked={learningAgreement}
                   type="checkbox"
                   name="learningAgreement"
@@ -1360,7 +1380,7 @@ const PlanRequest = ({ md }) => {
                   Lorem ipsum dolor sit amet consectetur.
                 </p>
               </div>
-            </label>
+            </Label>
           </div>
         </fieldset>
         <InputHidden md={md} />
@@ -1392,24 +1412,20 @@ const ApproveRequest = ({ md }) => {
 
   return (
     <DialogContent className=" sm:max-w-[425px]">
-      {isSubmitting && (
-        <div className="absolute h-full w-full flex items-center justify-center bg-white/20">
-          <LoadingSpinner stroke={`#000`} size={55} />
-        </div>
-      )}
+      {isSubmitting && <SpinnerFull />}
       <DialogHeader>
         <DialogTitle>Pengajuan Magang</DialogTitle>
-        <DialogDescription></DialogDescription>
+        <DialogDescription>Form Pengajuan Magang</DialogDescription>
       </DialogHeader>
       <div className="">
-        <label
+        <Label
           htmlFor="jenisMagang"
           className="block text-xs sm:text-sm  font-medium text-gray-700"
         >
           Jenis Magang
-        </label>
+        </Label>
 
-        <input
+        <Input
           defaultValue={md?.jenisMagang}
           placeholder="Jenis Magang"
           type="text"
@@ -1419,14 +1435,14 @@ const ApproveRequest = ({ md }) => {
         />
       </div>
       <div className="">
-        <label
+        <Label
           htmlFor="mataKuliah"
           className="block text-xs sm:text-sm  font-medium text-gray-700"
         >
           Mata Kuliah
-        </label>
+        </Label>
 
-        <input
+        <Input
           id="mataKuliah"
           defaultValue={md?.mataKuliah}
           placeholder="Mata Kuliah"
@@ -1452,8 +1468,8 @@ const ApproveRequest = ({ md }) => {
 
       <DialogFooter>
         <Form method="PUT" key="request_magang">
-          <input name="id" type="hidden" defaultValue={md?.id} />
-          <input name="status" type="hidden" defaultValue={status} />
+          <Input name="id" type="hidden" defaultValue={md?.id} />
+          <Input name="status" type="hidden" defaultValue={status} />
           {status !== "" && <Button type="submit">Submit</Button>}
         </Form>
       </DialogFooter>
@@ -1467,7 +1483,7 @@ const InputHidden = ({ md }) => {
       {Object.entries(md).map(([key, value]) => {
         if (value) {
           return (
-            <input
+            <Input
               key={key}
               name={key}
               type="hidden"

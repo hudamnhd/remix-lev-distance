@@ -1,113 +1,167 @@
 import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "~/components/ui/select";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { Button } from "~/components/ui/button";
+import { Spinner } from "~/components/ui/loading";
 import React from "react";
-import { useMatches } from "@remix-run/react";
+import { useMatches, Link } from "@remix-run/react";
 import Swal from "sweetalert2";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "~/components/ui/alert-dialog";
 
 export default function RegisterAccount() {
-	const { contract, user } = useMatches()[1].data;
-	console.warn("DEBUGPRINT[5]: app.register.tsx:13: user=", user);
-	console.warn("DEBUGPRINT[1]: app.register.tsx:13: contract=", contract);
+  const { contract, user } = useMatches()[1].data;
 
-	const roles = [
-		{
-			name: "Admin",
-		},
-		{
-			name: "Mahasiswa",
-		},
-	];
+  const roles = [
+    {
+      name: "Admin",
+    },
+    {
+      name: "Mahasiswa",
+    },
+  ];
 
-	if (user.register_status) {
-		return location.replace("/app");
-	}
+  if (user.register_status && user?.login_status) {
+    return location.replace("/app");
+  }
+  if (user.register_status && !user?.login_status) {
+    return location.replace("/app/login");
+  }
 
-	const [name, setName] = React.useState("");
-	const [role, setRole] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+  const [name, setName] = React.useState("");
+  const [role, setRole] = React.useState("");
 
-	return (
-		<div>
-			<div className="flex flex-row justify-center pt-12">
-				<div className="flex-col w-[90%]  lg:w-[30%] bg-white shadow-lg p-8">
-					<div className="mb-3">
-						<label
-							htmlFor="UserNama"
-							className="block text-sm font-semibold text-gray-700"
-						>
-							Nama
-						</label>
-						<input
-							value={name}
-							onChange={(e) => setName(e.target.value)}
-							type="text"
-							id="UserNama"
-							name="name"
-							placeholder="Nama"
-							className="mt-1 w-full rounded-[10px]  shadow-sm sm:text-sm p-2.5 border border-gray-400 outline-none"
-						/>
-					</div>
-					<label
-						htmlFor="UserNama"
-						className="block text-sm font-semibold text-gray-700"
-					>
-						Sebagai
-					</label>
-					<Select value={role} onValueChange={setRole} name="role">
-						<SelectTrigger className=" w-full text-gray-700 outline-none mt-1 focus:ring-none ring-blue-600 border border-gray-400 rounded-[10px] h-11 ">
-							<SelectValue placeholder="Pilih Role" />
-						</SelectTrigger>
-						<SelectContent>
-							{roles.map((e) => (
-								<SelectItem key={e?.name} value={e?.name}>
-									{e?.name}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-					<div className="flex items-center justify-center">
-						<button
-							type="button"
-							onClick={() => {
-								if (name.length > 0 && role.length > 0) {
-									Swal.fire({
-										icon: "info",
-										text: `Apakah anda yakin akan daftar sebagai ${role}`,
-									}).then(async (res) => {
-										if (res.isConfirmed) {
-											try {
-												await contract.methods.register(name, role).send({
-													from: user.accounts[0],
-													gas: "800000",
-												});
+  return (
+    <>
+      <div className="container relative hidden h-screen flex-col items-center justify-center md:grid lg:max-w-none lg:grid-cols-2 lg:px-0">
+        <div className="relative hidden h-full flex-col bg-muted p-10 text-white dark:border-r lg:flex">
+          <div className="absolute inset-0 bg-[url(https://images.unsplash.com/photo-1529236183275-4fdcf2bc987e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1467&q=80)]" />
+          <div className="relative z-20 mt-auto">
+            <blockquote className="space-y-2">
+              <footer className="text-sm bg-slate-50/50 w-fit text-black p-1.5 rounded-md font-semibold">
+                Riya Widayanti
+              </footer>
+            </blockquote>
+          </div>
+        </div>
+        <div className="lg:p-8">
+          <div className="mx-auto flex w-full flex-col justify-center space-y-4 sm:w-[350px]">
+            <div className="flex flex-col space-y-2 text-center">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                Create an account
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                Enter your details
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="name">Nama</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                type="text"
+                id="name"
+                name="name"
+                placeholder="Nama"
+              />
+            </div>
+            <div>
+              <Label htmlFor="UserNama">Sebagai</Label>
+              <Select value={role} onValueChange={setRole} name="role">
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih Role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((e) => (
+                    <SelectItem key={e?.name} value={e?.name}>
+                      {e?.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-												return location.replace("/app");
-											} catch (error: any) {
-												console.log(error);
-												return Swal.fire({
-													icon: "error",
-													title: error,
-												});
-											}
-										}
-									});
-								}
-							}}
-							className="rounded-[10px] mt-4 group relative inline-block overflow-hidden border border-indigo-600 px-8 py-3 focus:outline-none focus:ring"
-						>
-							<span className="absolute inset-y-0 left-0 w-[2px] bg-indigo-600 transition-all group-hover:w-full group-active:bg-indigo-500"></span>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  disabled={name.length === 0 || role.length === 0}
+                  type="button"
+                >
+                  Submit
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    Apakah anda yakin akan daftar sebagai {role}?
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Setelah menekan iya anda akan diminta melanjutkan transaksi
+                    di wallet etherum.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Batal</AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled={loading}
+                    onClick={async (e) => {
+                      e.preventDefault();
 
-							<span className="relative text-sm font-semibold text-indigo-600 transition-colors group-hover:text-white">
-								Masuk
-							</span>
-						</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	);
+                      try {
+                        setLoading(true);
+                        await contract.methods.register(name, role).send({
+                          from: user.accounts[0],
+                          gas: "800000",
+                        });
+
+                        return location.replace("/app");
+                      } catch (error: any) {
+                        console.log(error);
+                        setLoading(false);
+                        return Swal.fire({
+                          icon: "error",
+                          title: error,
+                        });
+                      }
+                    }}
+                  >
+                    {loading && <Spinner />} Iya
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <p className="px-8 text-center text-sm text-muted-foreground">
+              Please read{" "}
+              <Link
+                to="/doc"
+                className="underline underline-offset-4 hover:text-primary"
+              >
+                Documentation
+              </Link>
+            </p>
+            <p className="px-8 text-center text-sm text-muted-foreground">
+              By Riya Widayanti
+            </p>
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }

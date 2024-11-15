@@ -6,13 +6,12 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
-  relationMode = "prisma"
 }
 
 model Product {
-    id        String   @id
-    createdAt DateTime @default(now())
-    metadata  String   @db.Text
+  id        String   @id @map("_id") // ID di MongoDB akan tetap berupa String
+  createdAt DateTime @default(now())
+  metadata  String
 }

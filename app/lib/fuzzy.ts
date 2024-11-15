@@ -189,7 +189,7 @@ export const calculateFuzzyScore = (dataMataKuliah, query) => {
 
     const maxLen = Math.max(query.code.length, dataMataKuliah.code.length); // jumlah huruf code
     const distance = levenshteinDistance(dataMataKuliah.code, query.code);
-    console.warn("DISTANCE", distance);
+    // // console.warn("DISTANCE", distance);
     const codeScore = Math.max(
       0,
       codeWeight - (distance / maxLen) * codeWeight,
@@ -197,18 +197,18 @@ export const calculateFuzzyScore = (dataMataKuliah, query) => {
 
     //codeScore  2 - (1/6) * 2
 
-    console.warn("CODESCORE", codeScore);
+    // // console.warn("CODESCORE", codeScore);
     score += codeScore;
-    console.warn("SCORE", score);
+    // // console.warn("SCORE", score);
   }
 
   // Normalisasi skor agar berada dalam rentang 0-5
   const maxScore = categoryWeights[1] + codeWeight; // Total maksimal jika kategori cocok dan kode sempurna
   // Max score ditentukan dari Total Nilai yaitu A B+ C C+ D , dan total key yang di query ( code
   // dan category)
-  console.warn("MAXSCORE=", maxScore);
+  // console.warn("MAXSCORE=", maxScore);
   const normalizedScore = (score / maxScore) * 5;
-  console.warn("NORMALIZEDSCORE=", normalizedScore);
+  // console.warn("NORMALIZEDSCORE=", normalizedScore);
 
   return normalizedScore.toFixed(2);
 };
