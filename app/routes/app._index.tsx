@@ -35,7 +35,6 @@ export default function DashboardPage() {
     address: user?.profile?.id,
   };
   const isAdmin = user?.profile?.role === "Admin";
-  console.warn("DEBUGPRINT[1]: app._index.tsx:37: profile=", user);
 
   const memoizedData = React.useMemo(
     () => listPengajuan,
@@ -82,7 +81,7 @@ export default function DashboardPage() {
           </div>
         </div>
         <DataTable data={tasks} columns={columns} profile={profile} />
-        <Debug data={tasks} />
+        {/*<Debug data={tasks} />*/}
       </div>
     </>
   );

@@ -1,17 +1,17 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "mongodb"
-  url      = env("DATABASE_URL")
+  provider     = "mysql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
 }
 
-model Product {
-  id        String   @id @map("_id") // ID di MongoDB akan tetap berupa String
-  createdAt DateTime @default(now())
-  metadata  String
+model product {
+  id        String  @id @db.VarChar(255)
+  createdAt String? @db.VarChar(255)
+  metadata  String? @db.Text
+
+  @@index([id], map: "__SHARDKEY")
 }

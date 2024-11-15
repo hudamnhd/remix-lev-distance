@@ -1,4 +1,5 @@
-import type { MetaFunction } from "@remix-run/node";
+import type { MetaFunction, ActionFunctionArgs } from "@remix-run/node";
+import Web3 from "web3";
 import {
   Outlet,
   useLoaderData,
@@ -16,6 +17,35 @@ import {
 import { SpinnerFull } from "~/components/ui/loading";
 import { Button } from "~/components/ui/button";
 import { db } from "~/lib/db.server";
+
+export const action = async ({ request }: ActionFunctionArgs) => {
+  const formData = await request.formData();
+  let request_magang = formData.get("request_magang");
+
+  if (request_magang && request.method === "POST") {
+    const listPengajuan = await db.product.findMany();
+
+    const _data = JSON.parse(request_magang);
+    const _md = JSON.parse(_data.metadata);
+
+    const isTrue = listPengajuan?.filter((d) => {
+      const md = JSON.parse(d.metadata);
+      return md.name === _md?.name && md?.codeKuliah === _md.codeKuliah;
+    });
+
+    if (isTrue?.length > 0)
+      return json({
+        ok: false,
+        message: `Gagal Mengajukan Permintaan Magang`,
+      });
+
+    await db.product.create({
+      data: _data,
+    });
+
+    return json({ ok: true, message: `Sukses Mengajukan Permintaan Magang` });
+  }
+};
 
 export const loader = async () => {
   const sc = await getSmartContract();
@@ -44,11 +74,14 @@ export async function clientLoader({
   const { abi, deployed_address, network } = sc;
   const { JsonRpcProvider, Contract } = clientData;
 
-  const contract = contractWithAddress(
-    JSON.parse(abi),
-    deployed_address,
-    network,
-  );
+  const web3 = new Web3(window.ethereum);
+  let contract = new web3.eth.Contract(JSON.parse(abi), deployed_address);
+
+  // const contract = await contractWithAddress(
+  //   JSON.parse(abi),
+  //   deployed_address,
+  //   network,
+  // );
 
   const ethContract = contractEthWithAddress(
     abi,

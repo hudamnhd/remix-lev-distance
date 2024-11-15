@@ -63,6 +63,7 @@ export const RequestForm = ({ profile }) => {
   const _data = {
     id: id_product,
     metadata: product,
+    createdAt: new Date().toISOString(),
   };
 
   React.useEffect(() => {
@@ -139,7 +140,7 @@ export const RequestForm = ({ profile }) => {
           <ListData selectedMKOne={selectedMKOne} toggleMKone={toggleMKone} />
         </div>
         <DialogFooter>
-          <Form method="POST" action="/app?index">
+          <Form method="POST" action="/app">
             <Input
               name="request_magang"
               type="hidden"
