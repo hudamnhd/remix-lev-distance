@@ -4,7 +4,12 @@ import { parseIfString } from "~/lib/utils";
 import { Debug } from "~/components/debug";
 import { Button } from "~/components/ui/button";
 import React from "react";
-import { useMatches, useRevalidator, useLoaderData } from "@remix-run/react";
+import {
+  useMatches,
+  useSubmit,
+  useRevalidator,
+  useLoaderData,
+} from "@remix-run/react";
 import { json } from "@remix-run/node";
 import {
   getSmartContract,
@@ -307,6 +312,7 @@ function safeBigIntToNumber(bigIntValue) {
 
 function DataPage() {
   const { listPengajuan, contract, user } = useMatches()[1].data;
+  const submit = useSubmit();
   const { data } = useLoaderData<typeof loader>();
 
   const dataUploaded = listPengajuan
@@ -404,6 +410,7 @@ function DataPage() {
                 <div className="grid items-center">
                   <h4>Data yang di simpan ke database mysql</h4>
                   <JsonView data={decompressedData} />
+                  <a href={`/app/detail/${all.id}`}>view</a>
                   <h4>Data yang di simpan ke database blockchain</h4>
                   <JsonView data={compressedData} />
                 </div>
@@ -445,6 +452,24 @@ function DataPage() {
                         gasUsed: safeBigIntToNumber(gasUsed),
                       };
 
+                      let newPayload = {
+                        ...all,
+                        transaction,
+                      };
+
+                      submit(
+                        {
+                          type: "sidang",
+                          id: all?.id,
+                          json: JSON.stringify(newPayload),
+                        },
+                        {
+                          method: "post",
+                          action: `/app/${all?.id}`,
+                          navigate: false,
+                        },
+                      );
+                      console.log(transaction);
                       console.log(transaction);
                     }
 
