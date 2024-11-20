@@ -36,11 +36,8 @@ export default function RegisterAccount() {
     },
   ];
 
-  if (user.register_status && user?.login_status) {
+  if (user.register_status) {
     return location.replace("/app");
-  }
-  if (user.register_status && !user?.login_status) {
-    return location.replace("/app/login");
   }
 
   const [loading, setLoading] = React.useState(false);
@@ -127,7 +124,7 @@ export default function RegisterAccount() {
                         setLoading(true);
                         await contract.methods.register(name, role).send({
                           from: user.accounts[0],
-                          gas: "800000",
+                          // gas: "800000",
                         });
 
                         return location.replace("/app");

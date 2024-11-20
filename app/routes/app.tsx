@@ -1,19 +1,16 @@
 import type { MetaFunction, ActionFunctionArgs } from "@remix-run/node";
 import Web3 from "web3";
+import React from "react";
 import {
   Outlet,
   useLoaderData,
-  Link,
   useMatches,
   useNavigate,
   ClientLoaderFunctionArgs,
   json,
 } from "@remix-run/react";
 import { getSmartContract } from "~/lib/contract.server";
-import {
-  contractWithAddress,
-  contractEthWithAddress,
-} from "~/lib/contract.client";
+import { contractEthWithAddress } from "~/lib/contract.client";
 import { SpinnerFull } from "~/components/ui/loading";
 import { Button } from "~/components/ui/button";
 import { db } from "~/lib/db.server";
@@ -77,12 +74,6 @@ export async function clientLoader({
   const web3 = new Web3(window.ethereum);
   let contract = new web3.eth.Contract(JSON.parse(abi), deployed_address);
 
-  // const contract = await contractWithAddress(
-  //   JSON.parse(abi),
-  //   deployed_address,
-  //   network,
-  // );
-
   const ethContract = contractEthWithAddress(
     abi,
     deployed_address,
@@ -92,7 +83,6 @@ export async function clientLoader({
   );
 
   let accounts = null;
-  let login_status = null;
   let register_status = null;
   let profile = null;
   let productById = null;
@@ -102,22 +92,19 @@ export async function clientLoader({
   }
 
   if (window.ethereum) {
+    window.ethereum.on("accountsChanged", () => {
+      window.location.reload();
+    });
     try {
       accounts = await window.ethereum.request({
         method: "eth_requestAccounts",
       });
 
-      register_status = await contract?.methods
-        ?.checkRegisterStatus(accounts[0])
+      register_status = await contract.methods
+        ?.is_registered(accounts[0])
         .call();
 
-      login_status = await contract.methods
-        .checkLoginStatus(accounts[0])
-        .call();
-
-      if (login_status) {
-        profile = await contract.methods.profileInformation(accounts[0]).call();
-      }
+      profile = await contract.methods.profileInformation(accounts[0]).call();
     } catch (error) {
       console.error("User denied account access", error);
     }
@@ -127,7 +114,6 @@ export async function clientLoader({
 
   const user = {
     accounts,
-    login_status,
     register_status,
     profile,
   };
@@ -182,7 +168,7 @@ export default function Index() {
         <div className="m-auto flex h-full w-full flex-col items-center justify-center gap-2">
           <h1 className="text-[7rem] font-bold leading-tight">401</h1>
           <span className="font-medium">
-            Oops! You don't have permission to access this page.
+            Ups! Anda tidak memiliki izin untuk mengakses halaman ini.
           </span>
           <p className="text-center text-muted-foreground">
             Anda belum terdaftar dalam jaringan blockchain,
@@ -196,25 +182,6 @@ export default function Index() {
             <Button onClick={() => navigate("/app/register")}>Daftar</Button>
           </div>
         </div>
-
-        {/*<div className="grid h-screen place-content-center bg-white px-4">
-        <h1 className="uppercase tracking-widest text-gray-500 text-center">
-          Anda belum terdaftar dalam jaringan blockchain,
-          <span className="block"> silahkan melakukan pendaftaran!</span>
-        </h1>
-        <Link
-          to="/app/register"
-          className="uppercase tracking-widest text-blue-500 font-bold text-center"
-        >
-          Daftar
-        </Link>
-        <Link
-          to="/doc"
-          className="uppercase tracking-widest text-blue-500 font-bold text-center"
-        >
-          Dokumentasi
-        </Link>
-      </div>*/}
       </div>
     );
 

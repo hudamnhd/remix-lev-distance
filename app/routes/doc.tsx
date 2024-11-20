@@ -5,13 +5,19 @@ export default function Documentation() {
   const navigate = useNavigate();
   return (
     <div className="relative py-16 bg-white overflow-hidden">
-      <Button
-        variant="outline"
-        className="fixed flex items-center justify-center bottom-5 left-1/2 transform -translate-x-1/2  z-20 backdrop-blur-[2px] rounded-xl"
-        onClick={() => navigate(-1)}
-      >
-        Back
-      </Button>
+      <div className="fixed grid grid-cols-2 gap-x-2 items-center justify-center bottom-5 left-1/2 transform -translate-x-1/2  z-20 bg-muted p-1.5 backdrop-blur-[2px] rounded-lg">
+        <Button
+          size="sm"
+          variant="outline"
+          className="hover:bg-white"
+          onClick={() => navigate(-1)}
+        >
+          Back
+        </Button>
+        <Button size="sm" variant="default" onClick={() => navigate("/app")}>
+          Dashboard
+        </Button>
+      </div>
       <div className="hidden lg:block lg:absolute lg:inset-y-0 lg:h-full lg:w-full">
         <div
           className="relative h-full text-lg max-w-prose mx-auto"

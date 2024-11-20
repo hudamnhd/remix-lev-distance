@@ -1,7 +1,8 @@
 import type { LoaderArgs } from "@remix-run/react";
+import { parseMetadata, compressData, decompressData } from "~/lib/misc";
 import { Buffer } from "buffer";
 import { json } from "@remix-run/node";
-import { useMatches } from "@remix-run/react";
+import { useMatches, useSubmit } from "@remix-run/react";
 import { db } from "~/lib/db.server";
 import { parseIfString } from "~/lib/utils";
 
@@ -100,7 +101,6 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
     const formData = await parseMultipartFormData(request, uploadHandler);
     const images = formData.getAll("img"); // all file
-    console.warn("DEBUGPRINT[3]: tasks.$id.tsx:96: images=", images);
     // const imageNames = images
     //   .filter((file) => file.name.trim() !== "") // Hapus file dengan nama kosong
     //   .map((file) => file.name);
@@ -141,24 +141,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     //const updates = Object.fromEntries(formData);
     let type = formData.get("type");
     if (type === "sidang") {
-      let tanggalSidang = formData.get("tanggalSidang");
-      let nilai = formData.get("nilai");
-
-      let data = {
-        tanggalSidang,
-        nilai,
-      };
-
-      const parse_product = JSON.parse(p.metadata);
-      const product = { ...parse_product, ...data };
-      const _product = encodeBase64NoPadding(JSON.stringify(product));
+      let productJson = formData.get("json");
 
       await db.product.update({
         where: {
           id: id,
         },
         data: {
-          metadata: JSON.stringify(product),
+          metadata: productJson,
         },
       });
 
@@ -166,7 +156,6 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
         ok: true,
         message: `Sukses Memperbarui Permintaan Magang`,
         id,
-        product: _product,
       });
     }
 
@@ -227,6 +216,19 @@ export const loader = async ({ params }: LoaderArgs) => {
   return json({ data });
 };
 
+function safeBigIntToNumber(bigIntValue) {
+  // Memeriksa apakah BigInt berada dalam rentang Number yang valid
+  if (
+    bigIntValue <= Number.MAX_SAFE_INTEGER &&
+    bigIntValue >= Number.MIN_SAFE_INTEGER
+  ) {
+    return Number(bigIntValue);
+  } else {
+    // Jika nilai terlalu besar, kembalikan sebagai BigInt atau lakukan penanganan lain
+    console.warn("Value too large to convert to Number, returning BigInt");
+    return JSON.stringify(bigIntValue);
+  }
+}
 const threshold = 4; // Ambang batas untuk kesalahan
 
 const getValue = (value) => {
@@ -259,29 +261,6 @@ export default function Index() {
     : {};
 
   React.useEffect(() => {
-    const saveInBlockchain = async (id, product, message) => {
-      console.warn("DEBUGPRINT[4]: tasks.$id.tsx:256: product=", id, product);
-      try {
-        await contract.methods.createProduct(id, product).send({
-          from: user.accounts[0],
-          gas: "1400000",
-        });
-
-        Swal.fire({
-          icon: "success",
-          title: message,
-          showConfirmButton: false,
-          timer: 500,
-        });
-
-        return navigate("/app");
-      } catch (error) {
-        return Swal.fire({
-          icon: "error",
-          title: error,
-        });
-      }
-    };
     if (actionData?.ok && actionData?.message) {
       if (!actionData?.product) {
         Swal.fire({
@@ -293,7 +272,8 @@ export default function Index() {
         navigate("/app");
       } else {
         const { id, product, message } = actionData;
-        saveInBlockchain(id, product, message);
+        console.warn("DEBUGPRINT[4]: app.$id.tsx:302: product=", product);
+        // saveInBlockchain(id, product, message);
       }
     } else if (!actionData?.ok && actionData?.message) {
       Swal.fire({
@@ -430,10 +410,11 @@ const ValidationRequest = ({ md }) => {
     </DialogContent>
   );
 };
-import { Printer } from "lucide-react";
+import { Printer, Eye } from "lucide-react";
 const ScoreRequest = ({ md }) => {
   const [url, setUrl] = React.useState("");
   const certificateRef = React.useRef(null);
+  const navigate = useNavigate();
 
   const printCertificate = () => {
     if (certificateRef.current === null) {
@@ -514,13 +495,19 @@ const ScoreRequest = ({ md }) => {
             </div>
           </div>
         </div>
-        {/*<a href={`/app/detail/${md.id}`} target="_blank">
-          Detail Data
-        </a>*/}
-        <Button onClick={printCertificate} className="no-print mx-auto w-fit ">
-          <Printer />
-          Print Certificate
-        </Button>
+        <div className="mx-auto w-fit space-x-3">
+          <Button
+            onClick={() => navigate(`/app/detail/${md.id}`)}
+            variant="outline"
+          >
+            <Eye />
+            View
+          </Button>
+          <Button className="no-print " onClick={printCertificate}>
+            <Printer />
+            Print
+          </Button>
+        </div>
       </>
     </DialogContent>
   );
@@ -1010,6 +997,10 @@ const SidangRequest = ({ laporanMagang, md }) => {
     );
     setResultCombine(adjustedResults);
   };
+  const { user, contract } = useMatches()[1].data;
+  const { data } = useLoaderData<typeof loader>();
+  const submit = useSubmit();
+  const navigate = useNavigate();
 
   return (
     <DialogContent className="max-w-7xl">
@@ -1255,21 +1246,103 @@ const SidangRequest = ({ laporanMagang, md }) => {
         </Button>
 
         <Form method="PUT" key="request_magang">
-          <Input name="type" type="hidden" defaultValue="sidang" />
-          <Input name="id" type="hidden" defaultValue={md?.id} />
-          <Input
-            name="tanggalSidang"
-            type="hidden"
-            defaultValue={new Date(tanggalSidang)}
-          />
-          <Input
-            name="nilai"
-            type="hidden"
-            defaultValue={JSON.stringify(resultCombine)}
-          />
           {resultCombine?.length > 3 && tanggalSidang !== "" && (
-            <Button type="submit">Submit</Button>
+            <Button
+              type="button"
+              onClick={async () => {
+                let payload = {
+                  ...md,
+                  tanggalSidang,
+                  nilai: JSON.stringify(resultCombine),
+                };
+
+                const x = {
+                  metadata: JSON.stringify(payload),
+                };
+                const all = parseMetadata(x);
+                const compressedData = compressData(all);
+
+                try {
+                  const res = await contract.methods
+                    .createProduct(data?.id, JSON.stringify(compressedData))
+                    .send({
+                      from: user.accounts[0],
+                    });
+
+                  // Transaction Hash dari transaksi yang baru saja dikirim
+                  if (
+                    typeof res?.status === "bigint" &&
+                    Number(res?.status) === 1
+                  ) {
+                    const {
+                      transactionHash,
+                      transactionIndex,
+                      blockNumber,
+                      blockHash,
+                      from,
+                      to,
+                      cumulativeGasUsed,
+                      gasUsed,
+                    } = res;
+
+                    // Mengonversi BigInt ke Number dengan aman
+                    const transaction = {
+                      transactionHash,
+                      transactionIndex: safeBigIntToNumber(transactionIndex),
+                      blockNumber: safeBigIntToNumber(blockNumber),
+                      blockHash,
+                      from,
+                      to,
+                      cumulativeGasUsed: safeBigIntToNumber(cumulativeGasUsed),
+                      gasUsed: safeBigIntToNumber(gasUsed),
+                    };
+                    // const transaction = {
+                    //   transactionHash:
+                    //     "0x63fc61d0002aad8d195101d8f1bdfb9bd9211f7ab0d556ac1eeb444d2c537e51",
+                    //   transactionIndex: 0,
+                    //   blockNumber: 15,
+                    //   blockHash:
+                    //     "0x7abb161a5fe9c672ac2c9b732fefa8a3f9ef4a1f061ca282a298104abb168031",
+                    //   from: "0x14bc8b0f5d88a2554a813282c420609333bcaf59",
+                    //   to: "0x28c2d710f0dd94de4bb68664100d56ac2969d768",
+                    //   cumulativeGasUsed: 620569,
+                    //   gasUsed: 620569,
+                    // };
+                    let newPayload = {
+                      ...md,
+                      tanggalSidang,
+                      nilai: JSON.stringify(resultCombine),
+                      transaction,
+                    };
+
+                    const newMetadata = {
+                      metadata: JSON.stringify(payload),
+                    };
+                    submit(
+                      {
+                        type: "sidang",
+                        id: md?.id,
+                        json: JSON.stringify(newPayload),
+                      },
+                      { method: "put", route: "relative", navigate: false },
+                    );
+                    console.log(transaction);
+                  }
+                } catch (error) {
+                  console.warn(
+                    "DEBUGPRINT[6]: app.$id.tsx:1295: error=",
+                    error,
+                  );
+                }
+              }}
+            >
+              Submit
+            </Button>
           )}
+
+          {/*{resultCombine?.length > 3 && tanggalSidang !== "" && (
+            <Button type="submit">Submit</Button>
+          )}*/}
         </Form>
       </DialogFooter>
     </DialogContent>

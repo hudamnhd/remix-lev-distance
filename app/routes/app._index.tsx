@@ -1,9 +1,8 @@
 import { columns } from "~/routes/tasks/components/columns";
 import { parseIfString } from "~/lib/utils";
 import { DataTable } from "~/routes/tasks/components/data-table";
-import { UserNav } from "~/routes/tasks/components/user-nav";
+import { Badge } from "~/components/ui/badge";
 import { Debug } from "~/components/debug";
-import data from "~/constants/db.json";
 import React from "react";
 import { useMatches } from "@remix-run/react";
 
@@ -27,7 +26,7 @@ const getStatus = (md) => {
 };
 
 export default function DashboardPage() {
-  const { listPengajuan, user } = useMatches()[1].data;
+  const { listPengajuan, user, contract } = useMatches()[1].data;
 
   const profile = {
     role: user?.profile?.role,
@@ -67,22 +66,27 @@ export default function DashboardPage() {
     .reverse();
 
   return (
-    <>
-      <div className=" h-full flex-1 flex-col space-y-8 p-8 flex max-w-screen-2xl mx-auto">
-        <div className="flex items-center justify-between space-y-2">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">
-              Welcome back, {profile?.role} {profile?.name}!
-            </h2>
-            <div className="text-sm my-1">{profile?.address}</div>
-            <p className="text-muted-foreground">
-              Here&apos;s a list of request!
-            </p>
-          </div>
+    <div className=" h-full flex-1 flex-col space-y-8 p-8 flex max-w-screen-2xl mx-auto">
+      <div className="flex items-center justify-between space-y-2">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">
+            Welcome back,{" "}
+            <Badge
+              variant="outline"
+              className="text-2xl rounded-md bg-secondary"
+            >
+              {profile?.role}
+            </Badge>{" "}
+            {profile?.name}!
+          </h2>
+          <div className="text-sm my-1">{profile?.address}</div>
+          <p className="text-muted-foreground">
+            Here&apos;s a list of request!
+          </p>
         </div>
-        <DataTable data={tasks} columns={columns} profile={profile} />
-        {/*<Debug data={tasks} />*/}
       </div>
-    </>
+      <DataTable data={tasks} columns={columns} profile={profile} />
+      <Debug data={tasks} />
+    </div>
   );
 }

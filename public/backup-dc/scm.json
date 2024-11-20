@@ -1,5 +1,96 @@
 [
   {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_id",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "metadata",
+        "type": "string"
+      }
+    ],
+    "name": "createProduct",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "login",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "_name",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "_role",
+        "type": "string"
+      }
+    ],
+    "name": "register",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "desciription",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "created_at",
+        "type": "uint256"
+      }
+    ],
+    "name": "logginEvent",
+    "type": "event"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -70,54 +161,6 @@
   {
     "inputs": [
       {
-        "internalType": "string",
-        "name": "_id",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "metadata",
-        "type": "string"
-      }
-    ],
-    "name": "createProduct",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "_name",
-        "type": "string"
-      },
-      {
-        "internalType": "string",
-        "name": "_role",
-        "type": "string"
-      }
-    ],
-    "name": "register",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "address",
         "name": "_user",
         "type": "address"
@@ -174,9 +217,73 @@
     "type": "function"
   },
   {
-    "inputs": [],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "action",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "created_at",
+        "type": "uint256"
+      }
+    ],
+    "name": "userInteraction",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user_id",
+        "type": "address"
+      }
+    ],
+    "name": "checkLoginStatus",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user_id",
+        "type": "address"
+      }
+    ],
+    "name": "checkRegisterStatus",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
     "inputs": [],
@@ -208,11 +315,6 @@
             "internalType": "uint256",
             "name": "created_at",
             "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "transactionHash",
-            "type": "bytes32"
           }
         ],
         "internalType": "struct Magang.ProductStruct[]",
@@ -259,35 +361,11 @@
             "internalType": "uint256",
             "name": "created_at",
             "type": "uint256"
-          },
-          {
-            "internalType": "bytes32",
-            "name": "transactionHash",
-            "type": "bytes32"
           }
         ],
         "internalType": "struct Magang.ProductStruct",
         "name": "",
         "type": "tuple"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "string",
-        "name": "productId",
-        "type": "string"
-      }
-    ],
-    "name": "getProductTransactionHash",
-    "outputs": [
-      {
-        "internalType": "bytes32",
-        "name": "",
-        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -302,6 +380,25 @@
       }
     ],
     "name": "is_admin",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "name": "is_login",
     "outputs": [
       {
         "internalType": "bool",
@@ -421,11 +518,6 @@
         "internalType": "uint256",
         "name": "created_at",
         "type": "uint256"
-      },
-      {
-        "internalType": "bytes32",
-        "name": "transactionHash",
-        "type": "bytes32"
       }
     ],
     "stateMutability": "view",
@@ -447,6 +539,11 @@
             "internalType": "address",
             "name": "id",
             "type": "address"
+          },
+          {
+            "internalType": "bool",
+            "name": "is_login",
+            "type": "bool"
           },
           {
             "internalType": "string",
@@ -521,6 +618,11 @@
         "type": "address"
       },
       {
+        "internalType": "bool",
+        "name": "is_login",
+        "type": "bool"
+      },
+      {
         "internalType": "string",
         "name": "role",
         "type": "string"
@@ -535,4 +637,3 @@
     "type": "function"
   }
 ]
-

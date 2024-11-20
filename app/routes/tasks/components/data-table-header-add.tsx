@@ -72,36 +72,28 @@ export function SheetSide() {
           <SheetDescription>Click save when you're done.</SheetDescription>
         </SheetHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Name
-            </Label>
+          <div className="grid gap-2">
+            <Label htmlFor="name">Name</Label>
             <Input
               onChange={(e) => setName(e.target.value)}
               value={name}
               id="name"
               placeholder="Nama"
-              className="col-span-3"
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="address" className="text-right">
-              Address
-            </Label>
+          <div className="grid gap-2">
+            <Label htmlFor="address">Address</Label>
             <Input
               id="address"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="0x3293938014CE7a641177d45bF1c06bd7CD1e7b09"
-              className="col-span-3"
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="role" className="text-right">
-              Role
-            </Label>
+          <div className="grid items-center gap-2">
+            <Label htmlFor="role">Role</Label>
             <Select value={role} onValueChange={setRole}>
-              <SelectTrigger id="role" className="col-span-3">
+              <SelectTrigger id="role">
                 <SelectValue placeholder="Pilih Role" />
               </SelectTrigger>
               <SelectContent>
@@ -153,7 +145,7 @@ export function SheetSide() {
                           )
                           .send({
                             from: user.accounts[0],
-                            gas: "800000",
+                            // gas: "800000",
                           });
 
                         Swal.fire({

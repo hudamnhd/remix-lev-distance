@@ -7,7 +7,7 @@ import {
 
 export const Debug = ({ data }) => {
   return (
-    <Accordion type="single" collapsible className="w-fit">
+    <Accordion type="single" collapsible className="w-fit space-y-2">
       <AccordionItem value="item-1">
         <AccordionTrigger className="flex cursor-pointer items-center gap-1.5 rounded-sm border py-1 px-2 mb-1 text-sm max-w-[70px]">
           DEBUG

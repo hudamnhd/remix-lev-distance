@@ -1,25 +1,34 @@
 import type { LoaderArgs } from "@remix-run/node";
 import { parseIfString } from "~/lib/utils";
+import { decompressData } from "~/lib/misc";
 import { konversiNilai } from "~/lib/fuzzy";
 import { useLoaderData } from "@remix-run/react";
+import { initialData } from "~/constants/mataKuliah";
 import { json } from "@remix-run/node";
+import { db } from "~/lib/db.server";
 import {
   getSmartContract,
   getContractWithAddress,
   getProductById,
-  getProducts,
+  // getProducts,
 } from "~/lib/contract.server";
-import { Buffer } from "buffer";
 
-const decodeBase64WithPadding = (encoded: string) => {
-  const padded = encoded.padEnd(
-    encoded.length + ((4 - (encoded.length % 4)) % 4),
-    "=",
-  );
-  return Buffer.from(padded, "base64").toString("utf-8");
-};
+function safeBigIntToNumber(bigIntValue) {
+  // Memeriksa apakah BigInt berada dalam rentang Number yang valid
+  if (
+    bigIntValue <= Number.MAX_SAFE_INTEGER &&
+    bigIntValue >= Number.MIN_SAFE_INTEGER
+  ) {
+    return Number(bigIntValue);
+  } else {
+    // Jika nilai terlalu besar, kembalikan sebagai BigInt atau lakukan penanganan lain
+    console.warn("Value too large to convert to Number, returning BigInt");
+    return JSON.stringify(bigIntValue);
+  }
+}
 
 export const loader = async ({ params }: LoaderArgs) => {
+  const { id } = params;
   const sc = await getSmartContract();
   const { abi, deployed_address, network } = sc;
 
@@ -29,35 +38,47 @@ export const loader = async ({ params }: LoaderArgs) => {
     network,
   );
 
-  const products = await getProducts(contract);
-  const _product = await getProductById(contract, params.id);
+  // const datas = await getProducts(contract);
+  const _data = await getProductById(contract, id);
 
-  if (!_product || _product?.id === "") {
+  if (!_data || _data?.id === "") {
     throw new Response("Not Found", { status: 404 });
   }
-  const parseData = decodeBase64WithPadding(_product.metadata);
 
+  const parserData = parseIfString(_data.metadata);
+  const parseData = decompressData(parserData);
+
+  const addt = {
+    created_at: new Date(
+      safeBigIntToNumber(_data?.created_at) * 1000,
+    ).toISOString(),
+    transactionHash: _data?.transactionHash,
+  };
   const p = parseIfString(parseData);
-  const l = parseIfString(p.laporanMagang);
-  const n = parseIfString(p.nilai);
-  const f = parseIfString(p?.fileLaporan);
 
-  const product = {
+  const dataFromDatabase = await db.product.findUnique({
+    where: {
+      id, // Ganti dengan ID yang ingin Anda cari
+    },
+  });
+
+  if (!dataFromDatabase || dataFromDatabase?.id === "") {
+    throw new Response("Not Found", { status: 404 });
+  }
+  const parserDataDb = parseIfString(dataFromDatabase.metadata);
+
+  const data = {
     metadata: {
       ...p,
-      fileLaporan: f,
-      laporanMagang: l,
-      nilai: n,
     },
   };
 
-  return json({ product });
+  return json({ data, addt, local: parserDataDb });
 };
 
 function parseDate(dateString) {
   const date = new Date(dateString);
 
-  // Opsi untuk memformat tanggal
   const options = {
     hour: "2-digit",
     minute: "2-digit",
@@ -69,17 +90,35 @@ function parseDate(dateString) {
   // Format menjadi HH:MM, DD Month Year
   return date.toLocaleString("id-ID", options).replace(",", "");
 }
+import { Debug } from "~/components/debug";
 export default function DetailData() {
-  const { product } = useLoaderData<typeof loader>();
+  const { data, addt, local } = useLoaderData<typeof loader>();
+  const transaction = local?.transaction;
+
+  function getInitialData(initialData, nilai) {
+    return nilai.reduce((result, itemNilai) => {
+      const codeNilai = itemNilai.code;
+
+      const matchingData = initialData.find((item) => item.code === codeNilai);
+
+      if (matchingData) {
+        result.push({
+          ...matchingData,
+          score: itemNilai.score,
+        });
+      }
+
+      return result;
+    }, []);
+  }
+  const listMataKuliah = getInitialData(initialData, data?.metadata?.nilai);
   return (
-    <div className="max-w-4xl my-10 mx-auto px-4 sm:px-6 lg:px-8 ">
+    <div className="max-w-screen-2xl my-10 mx-auto px-4 sm:px-6 lg:px-8 grid sm:grid-cols-2 gap-5">
       <div className="bg-gradient-to-r from-slate-50 to-white border shadow overflow-hidden sm:rounded-lg">
-        <div className="px-4 py-5 sm:px-6">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
-            Informasi
-          </h3>
-          <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Rincian data {product.metadata.id}
+        <div className="px-4 py-5 sm:px-6 bg-gradient-to-r from-blue-600 to-sky-700">
+          <h3 className="text-lg leading-6 font-bold text-white">Informasi</h3>
+          <p className="mt-1 max-w-2xl text-sm text-white font-semibold">
+            Rincian data {data.metadata.id}
           </p>
         </div>
         <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
@@ -87,7 +126,7 @@ export default function DetailData() {
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500">Nama</dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {product.metadata.name}
+                {data.metadata.name}
               </dd>
             </div>
             <div className="sm:col-span-1">
@@ -95,13 +134,13 @@ export default function DetailData() {
                 Tanggal Sidang
               </dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {parseDate(product.metadata.tanggalSidang)}
+                {parseDate(data.metadata.tanggalSidang)}
               </dd>
             </div>
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500">Mata Kuliah</dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {product.metadata.mataKuliah}
+                {data.metadata.mataKuliah}
               </dd>
             </div>
             <div className="sm:col-span-1">
@@ -109,27 +148,25 @@ export default function DetailData() {
                 Jenis Magang
               </dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {product.metadata.jenisMagang}
+                {data.metadata.jenisMagang}
               </dd>
             </div>
             <div className="sm:col-span-1">
               <dt className="text-sm font-medium text-gray-500">Hard Skills</dt>
               <dd className="mt-1 text-sm text-gray-900">
                 <ol className="max-w-md space-y-1 text-gray-500 list-decimal list-inside dark:text-gray-400">
-                  {product?.metadata?.laporanMagang?.hardSkills?.map(
-                    (skill, index) => (
-                      <li key={index}>
-                        <span className="font-semibold text-gray-900 dark:text-white capitalize">
-                          {skill.name}
-                        </span>{" "}
-                        with{" "}
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {skill.value}
-                        </span>{" "}
-                        points
-                      </li>
-                    ),
-                  )}
+                  {data?.metadata?.hardSkills?.map((skill, index) => (
+                    <li key={index}>
+                      <span className="font-semibold text-gray-900 dark:text-white capitalize">
+                        {skill.name}
+                      </span>{" "}
+                      with{" "}
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {skill.value}
+                      </span>{" "}
+                      points
+                    </li>
+                  ))}
                 </ol>
               </dd>
             </div>
@@ -137,20 +174,18 @@ export default function DetailData() {
               <dt className="text-sm font-medium text-gray-500">Soft Skills</dt>
               <dd className="mt-1 text-sm text-gray-900">
                 <ol className="max-w-md space-y-1 text-gray-500 list-decimal list-inside dark:text-gray-400">
-                  {product?.metadata?.laporanMagang?.softSkills?.map(
-                    (skill, index) => (
-                      <li key={index}>
-                        <span className="font-semibold text-gray-900 dark:text-white capitalize">
-                          {skill.name}
-                        </span>{" "}
-                        with{" "}
-                        <span className="font-semibold text-gray-900 dark:text-white">
-                          {skill.value}
-                        </span>{" "}
-                        points
-                      </li>
-                    ),
-                  )}
+                  {data?.metadata?.softSkills?.map((skill, index) => (
+                    <li key={index}>
+                      <span className="font-semibold text-gray-900 dark:text-white capitalize">
+                        {skill.name}
+                      </span>{" "}
+                      with{" "}
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        {skill.value}
+                      </span>{" "}
+                      points
+                    </li>
+                  ))}
                 </ol>
               </dd>
             </div>
@@ -171,8 +206,8 @@ export default function DetailData() {
                     </thead>
 
                     <tbody className="divide-y divide-gray-200">
-                      {product?.metadata?.nilai &&
-                        product?.metadata?.nilai?.map((person, index) => (
+                      {listMataKuliah?.length > 0 &&
+                        listMataKuliah?.map((person, index) => (
                           <tr key={index} className={`cursor-pointer`}>
                             <td className="px-4 py-2 font-medium text-gray-900 text-left">
                               {person.matakuliah}
@@ -196,9 +231,9 @@ export default function DetailData() {
                   role="list"
                   className="border border-gray-200 rounded-md divide-y divide-gray-200"
                 >
-                  {product?.metadata?.fileLaporan &&
-                  product?.metadata?.fileLaporan?.length > 0
-                    ? product?.metadata?.fileLaporan?.map((d, index) => (
+                  {data?.metadata?.fileLaporan &&
+                  data?.metadata?.fileLaporan?.length > 0
+                    ? data?.metadata?.fileLaporan?.map((d, index) => (
                         <li
                           key={index}
                           className="pl-3 pr-4 py-3 flex items-center justify-between text-sm"
@@ -234,6 +269,137 @@ export default function DetailData() {
                       ))
                     : null}
                 </ul>
+              </dd>
+            </div>
+          </dl>
+        </div>
+        <div>
+          <a
+            href="#"
+            className="hidden block bg-slate-100 text-sm font-medium text-gray-500 text-center px-4 py-4 hover:text-gray-700 sm:rounded-b-lg"
+          >
+            Read full
+          </a>
+        </div>
+      </div>
+      <div className="bg-gradient-to-r from-slate-50 to-white border shadow overflow-hidden sm:rounded-lg">
+        <div className="px-4 py-5 sm:px-6 bg-gradient-to-r from-green-600 to-indigo-700">
+          <h3 className="text-lg leading-6 font-bold text-white">
+            Sertifikat Verifikasi Blockchain
+          </h3>
+          <p className="mt-1 max-w-2xl text-sm text-white font-semibold">
+            Data ini sudah diverifikasi oleh Blockchain dan tercatat dengan aman
+            di jaringan Ethereum.
+          </p>
+        </div>
+        <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
+          <div className="flex items-center gap-x-1 mb-2">
+            <h3 class="text-xl font-bold">Transaksi Blockchain</h3>
+            <svg
+              stroke="currentColor"
+              fill="currentColor"
+              strokeWidth={0}
+              viewBox="0 0 24 24"
+              className="ml-1 text-blue-500"
+              height={18}
+              width={18}
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <title>User Verified</title>
+              <path fill="none" d="M0 0h24v24H0z" />
+              <path d="M23 12l-2.44-2.79.34-3.69-3.61-.82-1.89-3.2L12 2.96 8.6 1.5 6.71 4.69 3.1 5.5l.34 3.7L1 12l2.44 2.79-.34 3.7 3.61.82L8.6 22.5l3.4-1.47 3.4 1.46 1.89-3.19 3.61-.82-.34-3.69L23 12zm-12.91 4.72l-3.8-3.81 1.48-1.48 2.32 2.33 5.85-5.87 1.48 1.48-7.33 7.35z" />
+            </svg>
+          </div>
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-5 sm:grid-cols-2">
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">
+                Sertifikat Id
+              </dt>
+              <dd className="mt-1 text-sm text-gray-900">{data.metadata.id}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">
+                Verifikasi Sertifikat Hash
+              </dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {addt?.transactionHash}
+              </dd>
+              <ul
+                role="list"
+                className="border border-gray-200 rounded-md divide-y divide-gray-200 mt-2"
+              >
+                <li className="pl-3 pr-4 py-2 flex items-center justify-between text-sm">
+                  <div className="w-0 flex-1 flex items-center">
+                    <span className="flex-1 w-0 text-xs">
+                      Hash ini dihasilkan berdasarkan data Sertifikat dan waktu
+                      transaksi untuk memastikan integritas. Anda bisa
+                      menggunakan hash ini untuk memverifikasi bahwa sertifikat
+                      yang tercatat tidak diubah.
+                    </span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">
+                Transaction Hash
+              </dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {transaction?.transactionHash}
+              </dd>
+              <ul
+                role="list"
+                className="border border-gray-200 rounded-md divide-y divide-gray-200 mt-2"
+              >
+                <li className="pl-3 pr-4 py-2 flex items-center justify-between text-sm">
+                  <div className="w-0 flex-1 flex items-center">
+                    <span className="flex-1 w-0 text-xs">
+                      Hash transaksi ini menunjukkan bahwa data produk telah
+                      berhasil diproses dan terverifikasi di blockchain
+                      Ethereum.
+                    </span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">
+                Transaction Index
+              </dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {transaction?.transactionIndex}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">Block Hash</dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {transaction?.blockHash}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">
+                Block Number
+              </dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {transaction?.blockNumber}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">
+                From Address
+              </dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {transaction?.from}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">To Address</dt>
+              <dd className="mt-1 text-sm text-gray-900">{transaction?.to}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-sm font-medium text-gray-500">Dibuat</dt>
+              <dd className="mt-1 text-sm text-gray-900">
+                {parseDate(addt?.created_at)}
               </dd>
             </div>
           </dl>
