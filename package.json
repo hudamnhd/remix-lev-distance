@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@metamask/sdk": "^0.27.0",
-    "@prisma/client": "5.18.0",
+    "@prisma/client": "^5.18.0",
     "@radix-ui/react-accordion": "^1.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.2",
     "@radix-ui/react-avatar": "^1.1.1",
@@ -68,5 +68,8 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

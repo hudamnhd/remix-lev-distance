@@ -2,7 +2,7 @@ import type { LoaderArgs } from "@remix-run/node";
 import { parseIfString } from "~/lib/utils";
 import { decompressData } from "~/lib/misc";
 import { konversiNilai } from "~/lib/fuzzy";
-import { useLoaderData } from "@remix-run/react";
+import { useLoaderData, Link } from "@remix-run/react";
 import { initialData } from "~/constants/mataKuliah";
 import { json } from "@remix-run/node";
 import { db } from "~/lib/db.server";
@@ -113,7 +113,7 @@ export default function DetailData() {
   }
   const listMataKuliah = getInitialData(initialData, data?.metadata?.nilai);
   return (
-    <div className="max-w-screen-2xl my-10 mx-auto px-4 sm:px-6 lg:px-8 grid sm:grid-cols-2 gap-5">
+    <div className="max-w-screen-2xl my-10 mx-auto px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-5">
       <div className="bg-gradient-to-r from-slate-50 to-white border shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 bg-gradient-to-r from-blue-600 to-sky-700">
           <h3 className="text-lg leading-6 font-bold text-white">Informasi</h3>
@@ -294,7 +294,7 @@ export default function DetailData() {
         </div>
         <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
           <div className="flex items-center gap-x-1 mb-2">
-            <h3 class="text-xl font-bold">Transaksi Blockchain</h3>
+            <h3 className="text-xl font-bold">Transaksi Blockchain</h3>
             <svg
               stroke="currentColor"
               fill="currentColor"
@@ -335,6 +335,13 @@ export default function DetailData() {
                       transaksi untuk memastikan integritas. Anda bisa
                       menggunakan hash ini untuk memverifikasi bahwa sertifikat
                       yang tercatat tidak diubah.
+                      <Link
+                        to={`/app/verify`}
+                        target="_blank"
+                        className="text-blue-500 ml-2 font-bold"
+                      >
+                        Verify
+                      </Link>
                     </span>
                   </div>
                 </li>
@@ -345,7 +352,13 @@ export default function DetailData() {
                 Transaction Hash
               </dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {transaction?.transactionHash}
+                <Link
+                  to={`https://dchain.id/explorer/transactions/${transaction?.transactionHash}`}
+                  target="_blank"
+                  className="text-blue-500"
+                >
+                  {transaction?.transactionHash}
+                </Link>
               </dd>
               <ul
                 role="list"
@@ -373,7 +386,13 @@ export default function DetailData() {
             <div className="sm:col-span-2">
               <dt className="text-sm font-medium text-gray-500">Block Hash</dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {transaction?.blockHash}
+                <Link
+                  to={`https://dchain.id/explorer/blocks/${transaction?.blockHash}`}
+                  target="_blank"
+                  className="text-blue-500"
+                >
+                  {transaction?.blockHash}
+                </Link>
               </dd>
             </div>
             <div className="sm:col-span-2">
@@ -389,12 +408,26 @@ export default function DetailData() {
                 From Address
               </dt>
               <dd className="mt-1 text-sm text-gray-900">
-                {transaction?.from}
+                <Link
+                  to={`https://dchain.id/explorer/address/${transaction?.from}`}
+                  target="_blank"
+                  className="text-blue-500"
+                >
+                  {transaction?.from}
+                </Link>
               </dd>
             </div>
             <div className="sm:col-span-2">
               <dt className="text-sm font-medium text-gray-500">To Address</dt>
-              <dd className="mt-1 text-sm text-gray-900">{transaction?.to}</dd>
+              <dd className="mt-1 text-sm text-gray-900">
+                <Link
+                  to={`https://dchain.id/explorer/address/${transaction?.to}`}
+                  target="_blank"
+                  className="text-blue-500"
+                >
+                  {transaction?.to}
+                </Link>
+              </dd>
             </div>
             <div className="sm:col-span-2">
               <dt className="text-sm font-medium text-gray-500">Dibuat</dt>
